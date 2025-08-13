@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Student Database</title>
+<style>
+  body { font-family: Arial, sans-serif; margin: 20px; }
+  input, button { margin: 5px 0; padding: 8px; width: 200px; }
+  ul { margin-top: 20px; }
+</style>
+</head>
+<body>
+
+<h1>Student Database</h1>
+
+<form id="studentForm">
+  <input type="text" id="name" placeholder="Student Name" required />
+  <br />
+  <input type="number" id="age" placeholder="Age" required min="1" />
+  <br />
+  <button type="submit">Add Student</button>
+</form>
+
+<ul id="studentList"></ul>
+
+<script>
+  const form = document.getElementById('studentForm');
+  const list = document.getElementById('studentList');
+
+  form.addEventListener('submit', async function (e) {
+    e.preventDefault();
+    const name = document.getElementById('name').value.trim();
+    const age = parseInt(document.getElementById('age').value);
+
+    if (!name || !age) {
+      alert('Please enter valid name and age');
+      return;
+    }
+
+    try {
+      const response = await fetch('http://localhost:3000/students', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, age }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        alert('Error: ' + errorData.error);
+        return;
+      }
+
+      form.reset();
+      loadStudents();
+    } catch (err) {
+      alert('Failed to connect to server');
+    }
+  });
+
+  async function loadStudents() {
+    try {
+      const res = await fetch('http://localhost:3000/students');
+      const students = await res.json();
+
+      list.innerHTML = '';
+      students.forEach((student, idx) => {
+        const li = document.createElement('li');
+        li.textContent = `${idx + 1}. ${student.name} (${student.age} years old)`;
+        list.appendChild(li);
+      });
+    } catch (err) {
+      list.innerHTML = '<li>Failed to load students</li>';
+    }
+  }
+
+  // Load students on page load
+  loadStudents();
+</script>
+
+</body>
+</html>
