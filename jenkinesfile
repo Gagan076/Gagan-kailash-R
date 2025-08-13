@@ -1,0 +1,63 @@
+pipeline {
+    agent any
+
+    environment {
+        DOCKERHUB_USER = 'your-dockerhub-username'
+        DOCKERHUB_PASS = credentials('dockerhub-credentials-id')
+        SONARQUBE_SERVER = 'SonarQubeServer' // Configured in Jenkins
+        BACKEND_IMAGE = 'student-db-backend'
+        FRONTEND_IMAGE = 'student-db-frontend'
+    }
+
+    stages {
+        stage('Checkout') {
+            steps {
+                git branch: 'main', url: 'https://github.com/your-repo/student-db.git'
+            }
+        }
+
+        stage('Install & Test Backend') {
+            dir('backend') {
+                steps {
+                    sh 'npm install'
+                    sh 'npm test'
+                }
+            }
+        }
+
+        stage('Install & Test Frontend') {
+            dir('frontend') {
+                steps {
+                    sh 'npm install || true' // Skip if static HTML
+                }
+            }
+        }
+
+        stage('SonarQube Analysis') {
+            steps {
+                withSonarQubeEnv("${SONARQUBE_SERVER}") {
+                    sh 'sonar-scanner -Dsonar.projectKey=student-db -Dsonar.sources=.'
+                }
+            }
+        }
+
+        stage('Docker Build & Push') {
+            steps {
+                script {
+                    sh "docker login -u ${DOCKERHUB_USER} -p ${DOCKERHUB_PASS}"
+                    sh "docker build -t ${DOCKERHUB_USER}/${BACKEND_IMAGE}:latest backend"
+                    sh "docker push ${DOCKERHUB_USER}/${BACKEND_IMAGE}:latest"
+
+                    sh "docker build -t ${DOCKERHUB_USER}/${FRONTEND_IMAGE}:latest frontend"
+                    sh "docker push ${DOCKERHUB_USER}/${FRONTEND_IMAGE}:latest"
+                }
+            }
+        }
+
+        stage('Deploy to Kubernetes') {
+            steps {
+                sh 'kubectl apply -f k8s/'
+            }
+        }
+    }
+}
